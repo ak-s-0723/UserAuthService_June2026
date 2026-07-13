@@ -5,6 +5,7 @@ import org.example.userauthservice_june2026.models.Status;
 import org.example.userauthservice_june2026.models.User;
 import org.example.userauthservice_june2026.repos.RoleRepo;
 import org.example.userauthservice_june2026.repos.UserRepo;
+import org.example.userauthservice_june2026.constants.RoleValues;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -34,12 +35,12 @@ public class AuthService {
         user.setPhoneNumber(phoneNumber);
 
         Role role = null;
-        Optional<Role> roleOptional = roleRepo.findByValue("NON_ADMIN");
+        Optional<Role> roleOptional = roleRepo.findByValue(RoleValues.NON_ADMIN);
         if (roleOptional.isPresent()) {
             role = roleOptional.get();
         } else {
             role = new Role();
-            role.setValue("NON_ADMIN");
+            role.setValue(RoleValues.NON_ADMIN);
             roleRepo.save(role);
         }
 
