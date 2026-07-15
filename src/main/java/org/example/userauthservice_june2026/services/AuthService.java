@@ -1,5 +1,8 @@
 package org.example.userauthservice_june2026.services;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.MacAlgorithm;
+import org.antlr.v4.runtime.misc.Pair;
 import org.example.userauthservice_june2026.models.Role;
 import org.example.userauthservice_june2026.models.Status;
 import org.example.userauthservice_june2026.models.User;
@@ -9,9 +12,9 @@ import org.example.userauthservice_june2026.constants.RoleValues;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 @Service
 public class AuthService {
@@ -51,7 +54,7 @@ public class AuthService {
         return userRepo.save(user);
     }
 
-    public User login(String email,String password) {
+    public Pair<User,String> login(String email, String password) {
         Optional<User> userOptional = userRepo.findByEmail(email);
         if (userOptional.isEmpty()) {
             throw new RuntimeException("Please signup first");
@@ -66,6 +69,48 @@ public class AuthService {
             throw new RuntimeException("Invalid Credentials");
         }
 
-        return user;
+        //JWT Generation logic
+        //Hardcoded payload just for demonstration
+//        String message = "{\n" +
+//                "   \"email\": \"anurag@gmail.com\",\n" +
+//                "   \"roles\": [\n" +
+//                "      \"instructor\",\n" +
+//                "      \"buddy\"\n" +
+//                "   ],\n" +
+//                "   \"expirationDate\": \"2ndApril2026\"\n" +
+//                "}";
+//
+//        byte[] content = message.getBytes(StandardCharsets.UTF_8);
+
+        Map<String,Object> claims = new HashMap<>();
+        claims.put("user_id",user.getId());
+
+        List<String> roleValues = new ArrayList<>();
+        for (Role role : user.getRoles()) {
+            roleValues.add(role.getValue());
+        }
+
+        claims.put("access",roleValues);
+        Long currentTimeInMillis = System.currentTimeMillis();
+        claims.put("iat",currentTimeInMillis); //iat = issued at
+        claims.put("exp",currentTimeInMillis+100000); //exp = expiry
+        claims.put("issued_by","scaler");
+        claims.put("type","auth");
+
+
+        //algorithm and secret key for signature generation
+        MacAlgorithm algorithm = Jwts.SIG.HS256;
+        SecretKey secretKey = algorithm.key().build();
+
+        //Generating token on basis of payload only (which is content byte-array)
+        //String token = Jwts.builder().content(content).compact();
+
+        //Generating token using payload and then signing it with secret key
+        //String token = Jwts.builder().content(content).signWith(secretKey).compact();
+
+        //generating a JWT on basis of actual user claims
+        String token = Jwts.builder().claims(claims).signWith(secretKey).compact();
+
+        return new Pair<>(user,token);
     }
 }
