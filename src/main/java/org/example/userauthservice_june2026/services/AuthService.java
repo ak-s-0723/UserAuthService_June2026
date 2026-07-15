@@ -1,12 +1,16 @@
 package org.example.userauthservice_june2026.services;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.MacAlgorithm;
 import org.antlr.v4.runtime.misc.Pair;
 import org.example.userauthservice_june2026.models.Role;
 import org.example.userauthservice_june2026.models.Status;
 import org.example.userauthservice_june2026.models.User;
+import org.example.userauthservice_june2026.models.UserSession;
 import org.example.userauthservice_june2026.repos.RoleRepo;
+import org.example.userauthservice_june2026.repos.SessionRepo;
 import org.example.userauthservice_june2026.repos.UserRepo;
 import org.example.userauthservice_june2026.constants.RoleValues;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +28,12 @@ public class AuthService {
 
     @Autowired
     private RoleRepo roleRepo;
+
+    @Autowired
+    private SessionRepo sessionRepo;
+
+    @Autowired
+    private SecretKey secretKey;
 
     public User signup(String name,String email,String password, String phoneNumber) {
         Optional<User> userOptional = userRepo.findByEmail(email);
@@ -92,15 +102,15 @@ public class AuthService {
 
         claims.put("access",roleValues);
         Long currentTimeInMillis = System.currentTimeMillis();
-        claims.put("iat",currentTimeInMillis); //iat = issued at
-        claims.put("exp",currentTimeInMillis+100000); //exp = expiry
+        claims.put("iat",currentTimeInMillis); //iat = issued at in ms
+        claims.put("exp",currentTimeInMillis+100000); //exp = expiry in ms
         claims.put("issued_by","scaler");
         claims.put("type","auth");
 
 
         //algorithm and secret key for signature generation
-        MacAlgorithm algorithm = Jwts.SIG.HS256;
-        SecretKey secretKey = algorithm.key().build();
+        //in AuthConfig.java
+
 
         //Generating token on basis of payload only (which is content byte-array)
         //String token = Jwts.builder().content(content).compact();
@@ -111,6 +121,36 @@ public class AuthService {
         //generating a JWT on basis of actual user claims
         String token = Jwts.builder().claims(claims).signWith(secretKey).compact();
 
+        //Assuming session will not exist before
+        UserSession userSession = new UserSession();
+        userSession.setStatus(Status.ACTIVE);
+        userSession.setUser(user);
+        userSession.setToken(token);
+        sessionRepo.save(userSession);
+
         return new Pair<>(user,token);
+    }
+
+    public Boolean validateToken(String token) {
+        Optional<UserSession> optionalUserSession = sessionRepo.findByToken(token);
+        if (optionalUserSession.isEmpty()) {
+            return false;
+        }
+
+        JwtParser jwtParser = Jwts.parser().verifyWith(secretKey).build();
+
+        Claims claims = jwtParser.parseSignedClaims(token).getPayload();
+        Long expiry = (Long)claims.get("exp");
+
+        Long currentTime = System.currentTimeMillis();
+        System.out.println("expiry = "+expiry);
+        System.out.println("currentTime = "+currentTime);
+        if(currentTime > expiry) {
+            System.out.println("Token has expired");
+            sessionRepo.delete(optionalUserSession.get());
+            return false;
+        }
+
+        return true;
     }
 }

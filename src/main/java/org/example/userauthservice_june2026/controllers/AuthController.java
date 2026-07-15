@@ -4,6 +4,7 @@ import org.antlr.v4.runtime.misc.Pair;
 import org.example.userauthservice_june2026.dtos.LoginRequestDto;
 import org.example.userauthservice_june2026.dtos.SignupRequestDto;
 import org.example.userauthservice_june2026.dtos.UserDto;
+import org.example.userauthservice_june2026.dtos.ValidateTokenRequestDto;
 import org.example.userauthservice_june2026.models.Role;
 import org.example.userauthservice_june2026.models.User;
 import org.example.userauthservice_june2026.services.AuthService;
@@ -54,11 +55,17 @@ public class AuthController {
             UserDto userDto = from(user);
             MultiValueMap<String,String> headers = new LinkedMultiValueMap<>();
             Map<String,String> dummy = new HashMap<>();
-            headers.add(HttpHeaders.SET_COOKIE,"jwt="+token);
+            headers.add(HttpHeaders.SET_COOKIE,"auth_session_id = "+token);
             return new ResponseEntity<>(userDto,headers,HttpStatus.OK);
         } catch (RuntimeException exception) {
             throw exception;
         }
+    }
+
+    @PostMapping("/validateToken")
+    public Boolean validateToken(@RequestBody ValidateTokenRequestDto validateTokenRequestDto)
+    {
+        return authService.validateToken(validateTokenRequestDto.getToken());
     }
 
     private UserDto from(User user) {
